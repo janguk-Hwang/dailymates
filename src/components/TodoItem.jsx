@@ -1,0 +1,292 @@
+import { useState, useEffect } from 'react'
+import { CheckCircle2, Circle, Trash2, Pencil, Check, X, GripVertical, FileText, Square, CheckSquare } from 'lucide-react'
+
+export default function TodoItem({
+  todo,
+  index,
+  onToggle,
+  onDelete,
+  onEdit,
+  onOpenDetail,
+  isDraggable = true,
+  onDragStart,
+  onDragOverItem,
+  onDragLeaveItem,
+  onDragEnd,
+  onDrop,
+  isDragging = false,
+  isDragOver = false,
+  dragOverPosition = null, // 'top' | 'bottom'
+  isSelected = false,
+  onSelect,
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(todo.text)
+  const [editPriority, setEditPriority] = useState(todo.priority || 'medium')
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditText(todo.text)
+      setEditPriority(todo.priority || 'medium')
+    }
+  }, [todo.text, todo.priority, isEditing])
+
+  const handleStartEdit = () => {
+    setEditText(todo.text)
+    setEditPriority(todo.priority || 'medium')
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    const trimmed = editText.trim()
+    if (!trimmed) return
+    onEdit(todo.id, trimmed, editPriority)
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setEditText(todo.text)
+    setEditPriority(todo.priority || 'medium')
+    setIsEditing(false)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    if (!isDraggable || isDragging) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const offset = e.clientY - rect.top
+    const position = offset < rect.height / 2 ? 'top' : 'bottom'
+    onDragOverItem && onDragOverItem(index, position)
+  }
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      onDragLeaveItem && onDragLeaveItem(index)
+    }
+  }
+
+  const handleDropInternal = (e) => {
+    e.preventDefault()
+    if (!isDraggable || isDragging) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const offset = e.clientY - rect.top
+    const position = offset < rect.height / 2 ? 'top' : 'bottom'
+    onDrop && onDrop(index, position)
+  }
+
+  const getPriorityBadge = (p) => {
+    switch (p) {
+      case 'high':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-red-100 text-red-700">
+            높음
+          </span>
+        )
+      case 'medium':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700">
+            보통
+          </span>
+        )
+      case 'low':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-700">
+            낮음
+          </span>
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div
+      draggable={!isEditing && isDraggable}
+      onDragStart={(e) => onDragStart && onDragStart(index, e)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDragEnd={onDragEnd}
+      onDrop={handleDropInternal}
+      className={`relative transition-all duration-150 ${
+        isDragging ? 'opacity-30 scale-[0.98]' : ''
+      }`}
+    >
+      {/* Top Insertion Line (위쪽 일정 사이 선 표시) */}
+      {isDragOver && dragOverPosition === 'top' && (
+        <div className="py-1 -my-0.5 transition-all duration-150">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-500 rounded-full shadow-sm shadow-indigo-300 flex items-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600 ring-2 ring-white shadow-sm -ml-0.5" />
+          </div>
+        </div>
+      )}
+
+      {/* Todo Card */}
+      <div
+        className={`group flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border transition-all duration-200 select-none ${
+          isDragging
+            ? 'border-dashed border-indigo-300 dark:border-indigo-600 bg-slate-50 dark:bg-slate-800 shadow-inner'
+            : isSelected
+            ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs ring-1 ring-indigo-400/50'
+            : todo.completed
+            ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/80 opacity-80'
+            : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800 shadow-xs hover:border-indigo-200 dark:hover:border-slate-700'
+        }`}
+      >
+        {/* Selection Checkbox (다중 선택/일괄 작업용) */}
+        {onSelect && !isEditing ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSelect(todo.id)
+            }}
+            title={isSelected ? '항목 선택 해제' : '항목 선택'}
+            className="w-5 h-7 flex items-center justify-center text-slate-300 hover:text-indigo-600 dark:text-slate-600 dark:hover:text-indigo-400 -mr-0.5 cursor-pointer transition-colors focus:outline-none flex-shrink-0"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 fill-indigo-100 dark:fill-indigo-950/60" />
+            ) : (
+              <Square className="w-4.5 h-4.5" />
+            )}
+          </button>
+        ) : null}
+
+        {/* Drag Handle */}
+        {isDraggable && !isEditing ? (
+          <div
+            title="끌어서 순서 변경"
+            className="text-slate-300 hover:text-indigo-600 sm:group-hover:text-slate-400 w-5 h-7 flex items-center justify-center -ml-1 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        ) : null}
+
+        {/* Completion Toggle Button */}
+        <button
+          type="button"
+          onClick={() => onToggle(todo.id)}
+          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors focus:outline-none flex-shrink-0 cursor-pointer active:scale-90"
+          aria-label={todo.completed ? '미완료로 변경' : '완료로 변경'}
+        >
+          {todo.completed ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 fill-emerald-50" />
+          ) : (
+            <Circle className="w-5 h-5" />
+          )}
+        </button>
+
+        {/* Content / Edit Form */}
+        <div className="flex-1 min-w-0 pr-1">
+          {isEditing ? (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2">
+              <input
+                type="text"
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSave()
+                  if (e.key === 'Escape') handleCancel()
+                }}
+                autoFocus
+                className="flex-1 min-w-0 px-2.5 py-1.5 text-sm border border-indigo-400 dark:border-indigo-500 rounded-lg focus:outline-none ring-2 ring-indigo-500/20 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+              />
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                <select
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(e.target.value)}
+                  className="px-2 py-1.5 text-xs font-medium border border-indigo-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                >
+                  <option value="high">높음 🔴</option>
+                  <option value="medium">보통 🟡</option>
+                  <option value="low">낮음 🟢</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="w-8 h-8 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                  title="저장"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                  title="취소"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="overflow-hidden cursor-pointer group/text"
+              onClick={() => onOpenDetail && onOpenDetail(todo)}
+            >
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span
+                  className={`text-sm font-medium transition-all break-words break-all leading-snug group-hover/text:text-indigo-600 dark:group-hover/text:text-indigo-400 ${
+                    todo.completed
+                      ? 'line-through text-slate-400 dark:text-slate-500'
+                      : 'text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  {todo.text}
+                </span>
+                {getPriorityBadge(todo.priority)}
+                {todo.description && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/60"
+                    title="상세 메모 있음 (클릭 시 확인)"
+                  >
+                    <FileText className="w-3 h-3 text-indigo-500" />
+                    <span>메모</span>
+                  </span>
+                )}
+              </div>
+              {todo.description && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1 italic">
+                  {todo.description}
+                </p>
+              )}
+              <span className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">
+                {todo.createdAt}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons (Edit / Delete) */}
+        {!isEditing && (
+          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => (onOpenDetail ? onOpenDetail(todo) : handleStartEdit())}
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer active:scale-90"
+              title="상세 내용 및 수정"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(todo.id)}
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer active:scale-90"
+              title="삭제"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Insertion Line (아래쪽 일정 사이 선 표시) */}
+      {isDragOver && dragOverPosition === 'bottom' && (
+        <div className="py-1 -my-0.5 transition-all duration-150">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-500 rounded-full shadow-sm shadow-indigo-300 flex items-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600 ring-2 ring-white shadow-sm -ml-0.5" />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
